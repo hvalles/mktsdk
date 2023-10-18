@@ -1,88 +1,110 @@
-import os
-import aiosqlite
-import asyncio
-from sdk import Auth, Controller, Productos
+import os, sys, sqlite3, time
+from sdk import Auth, Controller, Productos, Variaciones, Categorias
 from dotenv import load_dotenv
+from database import create, dbfile, drop, seconds, max_rows
+from model import Categoria, Atributo
 
 load_dotenv()
-
-dbfile = "data/file.db"
 db = None
 auth = None
 
-async def drop():
-    db = await aiosqlite.connect(dbfile)
-    sql = "SELECT count(*) as total FROM sqlite_master WHERE type='table' AND name='items';"
-    cursor = await db.execute(sql)
-    row = await cursor.fetchone()    
-    if not row or not row[0]: return False
-    sql = "drop table items;"
-    cursor = await db.execute(sql)
-    await db.close()
-    return True
-
-async def create():    
-    db = await aiosqlite.connect(dbfile)
-    sql = "SELECT count(*) as total FROM sqlite_master WHERE type='table' AND name='items';"
-    cursor = await db.execute(sql)
-    row = await cursor.fetchone()
-    if row and row[0]: return False
-    sql = """
-        CREATE TABLE items (
-            id INTEGER PRIMARY KEY,
-            sku TEXT NOT NULL,
-            nombre TEXT NOT NULL
-        );"""
-    cursor = await db.execute(sql)
-    sql = "CREATE UNIQUE INDEX item_sku ON items(sku);"
-    cursor = await db.execute(sql)
-    await db.close()
-    return True
-
-async def get_item(id=0) :
-    if id:
-        cursor = await db.execute('SELECT * FROM items where id=%s;',(id))
-        row = await cursor.fetchone()
-    else:
-        cursor = await db.execute('SELECT * FROM items order by id;',())
-        row = await cursor.fetchall()
-        await cursor.close()
-    return row
 
 def getAnswer(data):
+    "Retrieve each recovered row from REST API Call."
     if data.get('answer'):
         for x in data.get('answer'):
             yield x
 
 def showAnswer(data):
+    "Show answer from REST Api for debugging only."
     if data.get('answer'):
         for x in data.get('answer'):
             print(x)
 
-async def recoverItems():
-    db = await aiosqlite.connect(dbfile)
-    productos = Productos('productos', auth=auth)
-    total = await productos.get_conteo()
-    pages = total // 250
+def recoverItems():
+    "Retrieve all items and save them all in database, for verify later ids"
+    print("Recover Items...")
+    db = sqlite3.connect(dbfile)
+    productos = Productos(auth=auth)
+    total = productos.get_count()
+    pages = total // max_rows
     sql = "insert or ignore into items (id, sku, nombre) values (?, ?, ?);"
     for i in range(0,pages):
-        items = await productos.get_listado(250, 250 * i)
+        items = productos.get_list(max_rows, max_rows * i)
         for x in getAnswer(items):
             print (x['id'], x['sku'], x['nombre'])
-            await db.execute(sql, (x['id'], x['sku'], x['nombre']))
-        await db.commit()    
-        asyncio.sleep(1.0)
-    await db.close()
+            db.execute(sql, (x['id'], x['sku'], x['nombre']))
+        db.commit()    
+        time.sleep(seconds)
+    print("End of process...")
+    db.close()
+    return True
 
-async def main():
+def recoverChildren():
+    "Retrieve all children and save them all in database, for verify later ids"
+    print("Recover children...")
+    db = sqlite3.connect(dbfile)
+    children = Variaciones(auth=auth)
+    total = children.get_count()
+    pages = total // max_rows
+    sql = "insert or ignore into children (id, sku, color, talla) values (?, ?, ?, ?);"
+    for i in range(0,pages):
+        items = children.get_list(max_rows, max_rows * i)
+        for x in getAnswer(items):
+            print (x['id'], x['sku'], x['color'], x['talla'])
+            db.execute(sql, (x['id'], x['sku'], x['color'], x['talla']))
+        db.commit()    
+        time.sleep(seconds)
+    print("End of process...")
+    db.close()
+    return True
+
+def getCategory(id=0, path=''):
+    "Retrieve Category by id or name"
+    c = Categorias(auth)
+    params={}
+    if id: params['ids']=id
+    if path: params['name']=path.replace('/',':')
+    data = c.get(params)    
+    todos = []
+    for x in getAnswer(data):
+        r = Categoria()
+        todos.append(r.setter(x))
+    return todos
+
+def getAttributes(id:int=0):
+    id = int(id)
+    c = Categorias(auth)
+    data = c.get_attributes(id)
+    todos = []
+    for x in getAnswer(data):
+        r = Atributo()
+        todos.append(r.setter(x))
+    return todos
+
+def raw_call(controller):
+    # Example Raw Call
+    c = Controller(controller, auth=auth)
+    showAnswer(c.get())
+
+def main():
     global auth
-    await create()
+    create()
     token = os.getenv('TOKEN')
     private = os.getenv("PRIVATE")
     auth = Auth(token=token, private=private)
-    # colores = Controller('colores', auth=auth)
-    # showAnswer(await colores.get())
-    await recoverItems()  
-    await asyncio.sleep(.25)
+    #recoverItems()
+    #recoverChildren()  
+    cats = getCategory(0, '/Ropa,_Bolsas_y_Calzado/Playeras')
+    c:Categoria = None
+    for c in cats:
+        print(c)
+    attrs = getAttributes(c.id)
+    a:Atributo = None
+    for a in attrs:
+        print(a)
 
-asyncio.run(main())
+
+
+if __name__ == '__main__':
+    main()

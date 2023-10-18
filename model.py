@@ -1,25 +1,35 @@
 
 class Model:
     "Model class all objects are derived fom it"
-    _columns = {}
+    
+    @staticmethod
+    def use_alias():
+        return False
+    
+    def get_alias(self, key):
+        return None
 
-    def __getattr__(self, name):
-        "Obtains value of non register attributes"
-        return self._columns.get(name)
+    def __getitem__(self, key):
+        if hasattr(self, key): return getattr(self, key)
+        return None
 
-    def __setattr__(self, name, value):
-        "Set value of non register attributes"
-        self._columns[name] = value
+    def __setitem__(self, key, value):
+        "Set value of  attributes"
+        if hasattr(self, key): setattr(self, key, value)
+        if self.use_alias() and self.get_alias(key): 
+            setattr(self, self.get_alias(key), value)
 
     def __delattr__(self, name):
         "Delete  non register attributes"
         del self._columns[name]
 
-    @staticmethod
     def setter(self, record:dict):
-        "Set values from record to Model child object"
+        "Set values from record to Model child object, includes mapping it"
         for k in record.keys():
-            setattr(self, k, record[k])
+            if self.use_alias(): 
+                self[self.map(k)] = record[k]
+            else:
+                self[k] = record[k]
 
         return self
 
@@ -36,8 +46,11 @@ class Model:
                 
         return data
 
-    def clone(self):
-        raise NotImplementedError
+    def map(self, key):
+        "Map column to attribute, according to standard names from Excel template"
+        alias = self.get_alias(key)
+        if alias : return alias
+        return key
 
     @staticmethod
     def _printup(obj, level = 0):
@@ -66,7 +79,7 @@ class Model:
             if not bool(obj): return filler + "{}"            
             s=filler+"{\n"
             for x in obj.keys():
-                s += f"{filler}'{x}': " + Model._printup(obj['x'], level+1) + "\n"
+                s += f"{filler}'{x}': " + Model._printup(obj[x], level+1) + "\n"
             s+=filler+"}"
             return s
 
@@ -84,6 +97,10 @@ class Model:
 
     def __str__(self):
         return Model._printup(self)
+
+class AliasedModel(Model):
+    def use_alias():
+        return True    
 
 class Color(Model):
     def __init__(self):
@@ -104,12 +121,6 @@ class Market(Model):
         self.market:str = None
         self.url_sitio:str = None
 
-class Valor(Model):
-    def __init__(self):
-        self.id:int = 0
-        self.clave:str=None
-        self.valor:str=None
-
 class Atributo(Model):
     def __init__(self):
         self.id:int = 0
@@ -123,7 +134,28 @@ class Atributo(Model):
         self.valores:list = [] # valor
         self.unidades: list = [] # valor
 
-class Producto(Model):
+class Producto(AliasedModel):
+    constructed=False
+    _alias={}
+    
+    def get_alias(self, key):
+        return Producto._alias.get(key,False)
+
+    def construct(self):
+        Producto.constructed=True
+        Producto._alias={}
+        Producto._alias['parent-sku'] = 'sku'
+        Producto._alias['ruta-color_base']='base'
+        Producto._alias['nombre_modelo']='n_modelo'
+        Producto._alias['fecha-inicio']='date_created'
+        Producto._alias['garantia']='warranty'
+        Producto._alias['alto-paq']='palto'
+        Producto._alias['ancho-paq']='pancho'
+        Producto._alias['largo-paq']='plargo'
+        Producto._alias['peso-paq']='ppeso'
+        Producto._alias['tipo-publicacion']='listing_type_id'
+        Producto._alias['pais']='origen'
+    
     def __init__(self):
         self.id:int = 0
         self.cliente_id:int = 0
@@ -140,25 +172,23 @@ class Producto(Model):
         self.filtro_id:int=0
         self.marca:str=None
         self.etiquetas:str=None
-        self.etiquetas_web:str=None
         self.modelo:str=None
-        self.activo:int=0
+        self.date_created=None
         self.atributos:list = []
-        self.origen:int=0
+        self.listing_type_id:str=None
         self.warranty:str=None
         self.nombre_modelo:str=None
+        self.origen:int=0
+        self.color:str=''
+        self.base:str=''
         self.palto:float=None
         self.pancho:float=None
         self.plargo:float=None
         self.ppeso:float=None
+        self.etiquetas_web:str=None
         self.taxcode:str=None
-        self.color:str=None
-        self.base:str=None
+        if not Producto.constructed: Producto.construct()
 
-class Recurso(Model):
-    def __init__(self):
-        self.id:int=0
-        self.valor:str=None
 
 class Variacion(Model):
     def __init__(self):
@@ -170,6 +200,44 @@ class Variacion(Model):
         self.talla:str=None
         self.gtin:str=None
         self.video:str=None
-        self.imagenes:list=[] # Up to 10 Recursos
-        self.bullets:list=[] # Up to 5 Recursos
+        self.imagen1:str=None
+        self.imagen2:str=None
+        self.imagen3:str=None
+        self.imagen4:str=None
+        self.imagen5:str=None
+        self.imagen6:str=None
+        self.imagen7:str=None
+        self.imagen8:str=None
+        self.imagen9:str=None
+        self.imagen10:str=None
+        self.bullet1:str=None
+        self.bullet2:str=None
+        self.bullet3:str=None
+        self.bullet4:str=None
+        self.bullet5:str=None
         self.atributos:list = []
+
+class Componente(Model):
+    def __init__(self):
+        self.sku:str=None
+        self.cantidad:int=0
+
+class Kit(Model):
+    def __init__(self):
+        self.id:int=0
+        self.sku:str=None
+        self.comentario:str=None
+        self.componentes:list=[]
+
+class Precio(Model):
+    def __init__(self):
+        self.market_id:int=0
+        self.product_id:int = 0
+        self.precio:float=0.00
+        self.oferta:float=0.00
+
+class Stock(Model):
+    def __init__(self):
+        self.seller_sku:str = None
+        self.product_id:int=0
+        self.stock:int=0

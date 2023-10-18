@@ -1,5 +1,5 @@
 import urllib
-import aiohttp
+import requests
 from datetime import datetime, timedelta
 import hashlib
 from hmac import HMAC
@@ -38,72 +38,119 @@ class Auth():
         return self.getServer() + controller + concatenated + '&signature=' + self.signature(concatenated)
 
 class Controller():    
+    TIMEOUT=3.0
     def __init__(self, endpoint:str, auth:Auth=None) -> None:
         self.endpoint=endpoint
         self.auth = auth
 
-    async def call(self, url, method="get", data=None):
+
+    def call(self, url, method="get", data=None):
         if not self.auth: raise Exception("Authorization  required!")
         if data:
-            async with aiohttp.ClientSession() as session:
-                if method=='get':
-                    async with session.get(url, json=data) as resp:
-                        return await resp.json()
-                if method=='post':
-                    async with session.post(url, json=data) as resp:
-                        return await resp.json()
-                if method=='put':
-                    async with session.put(url, json=data) as resp:
-                        return await resp.json()
-                raise Exception("Method not allowed.")
+            if method=='get':
+                r = requests.get(url, json=data, timeout=self.TIMEOUT)
+                return r.json()
+            if method=='post':
+                r = requests.post(url, json=data, timeout=self.TIMEOUT)
+                return r.json()
+            if method=='put':
+                r = requests.put(url, json=data, timeout=self.TIMEOUT)
+                return r.json()
+            raise Exception("Method not allowed.")
 
         else:
-            async with aiohttp.ClientSession() as session:
-                if method=='get':
-                    async with session.get(url) as resp:
-                        return await resp.json()
-                if method=='post':
-                    async with session.post(url) as resp:
-                        return await resp.json()
-                if method=='put':
-                    async with session.put(url) as resp:
-                        return await resp.json()
-                if method=='delete':
-                    async with session.delete(url) as resp:
-                        return await resp.json()
-                raise Exception("Method not allowed.")
+            if method=='get':
+                r = requests.get(url, timeout=self.TIMEOUT)
+                return r.json()
+            if method=='post':
+                r = requests.post(url, timeout=self.TIMEOUT)
+                return r.json()
+            if method=='put':
+                r = requests.put(url, timeout=self.TIMEOUT)
+                return r.json()
+            if method=='delete':
+                r = requests.delete(url, timeout=self.TIMEOUT)
+                return r.json()
+            raise Exception("Method not allowed.")
 
 
-    async def get(self, key:dict=None, data:dict={}):        
+    def get(self, key:dict=None, data:dict={}):        
         if not key: key={}
         url = self.auth.getUrl(self.endpoint, key)
-        return await self.call(url, "get", data)
+        return self.call(url, "get", data)
 
-    async def post(self, data:dict={}):
+    def post(self, data:dict={}):
         url = self.auth.getUrl(self.endpoint)
-        return await self.call(url, "post", data)
+        return self.call(url, "post", data)
 
-    async def put(self, key:dict, data:dict={}):
+    def put(self, key:dict, data:dict={}):
         if not key: key={}
         url = self.auth.getUrl(self.endpoint, key)
-        return await self.call(url, "put", data)
+        return self.call(url, "put", data)
 
-    async def delete(self, key:dict):
+    def delete(self, key:dict):
         if not key: key={}
         url = self.auth.getUrl(self.endpoint, key)
-        return await self.call(url, "put")
+        return self.call(url, "delete")
 
+class Colores(Controller):
+    def __init__(self, auth:Auth=None) -> None:
+        self.endpoint='colores'
+        self.auth = auth
+
+class Categorias(Controller):
+    def __init__(self, auth:Auth=None) -> None:
+        self.endpoint='categorias'
+        self.auth = auth
+    
+    def get_attributes(self, category_id:int):
+        category_id = int(category_id)
+        url = self.auth.getUrl(self.endpoint+f"/atributos/{category_id}")
+        return self.call(url, "get")
+
+class Markets(Controller):
+    def __init__(self, auth:Auth=None) -> None:
+        self.endpoint='markets'
+        self.auth = auth
+
+class Kits(Controller):
+    def __init__(self, auth:Auth=None) -> None:
+        self.endpoint='kits'
+        self.auth = auth
 
 class Productos(Controller):
+    def __init__(self, auth:Auth=None) -> None:
+        self.endpoint='productos'
+        self.auth = auth
 
-    async def get_conteo(self):
+    def get_count(self):
+        "Get total count of records"
         url = self.auth.getUrl(self.endpoint+"/countkeys")
-        data = await self.call(url, "get")
+        data = self.call(url, "get")
         answer = data.get('answer',[])
         if not answer: return 0
         return int(answer[0].get('total',0))
 
-    async def get_listado(self, limit=250, offset=0, order="desc"):
+    def get_list(self, limit=250, offset=0, order="desc"):
+        "Get list of records from server"
         url = self.auth.getUrl(self.endpoint+f"/listkeys/{limit}/{offset}/{order}")
-        return await self.call(url, "get")
+        return self.call(url, "get")
+
+class Variaciones(Controller):
+    def __init__(self, auth:Auth=None) -> None:
+        self.endpoint='variacion'
+        self.auth = auth
+
+    def get_count(self):
+        "Get total count of records"
+        url = self.auth.getUrl(self.endpoint+"/countkeys")
+        data = self.call(url, "get")
+        answer = data.get('answer',[])
+        if not answer: return 0
+        return int(answer[0].get('total',0))
+
+    def get_list(self, limit=250, offset=0, order="desc"):
+        "Get list of records from server"
+        url = self.auth.getUrl(self.endpoint+f"/listkeys/{limit}/{offset}/{order}")
+        return self.call(url, "get")
 
