@@ -46,6 +46,12 @@ class Model:
                 
         return data
 
+    def haskey(self, key):
+        "Check if attribute is present in object"
+        if hasattr(self, key): return True
+        if not self.use_alias(): return False
+        return self.get_alias(key)
+
     def map(self, key):
         "Map column to attribute, according to standard names from Excel template"
         alias = self.get_alias(key)
@@ -114,6 +120,24 @@ class Categoria(Model):
         self.ruta:str = None
         self.permite_variacion:int = 0
         self.filtros:list = []
+        self._atributos={}
+
+    def isMandatory(self, key):
+        a:Atributo = self._atributos.get(key)
+        if not a: return False
+        return bool(a.relevancia)
+
+    def isVariant(self, key):
+        a:Atributo = self._atributos.get(key)
+        if not a: return False
+        return bool(a.variacion)
+    
+    def isCombination(self, key):
+        a:Atributo = self._atributos.get(key)
+        if not a: return False
+        return int(a.variacion)==2
+
+        
 
 class Market(Model):
     def __init__(self):
