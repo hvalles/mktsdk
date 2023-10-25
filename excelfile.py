@@ -54,7 +54,6 @@ class Excelfile():
                 if not col: continue
                 value = self.hoja.cell(row, i).value
                 z=r.haskey(col)
-                print(type(r),col, z)
                 if z:
                     if not value: value=''
                     r[col] = value

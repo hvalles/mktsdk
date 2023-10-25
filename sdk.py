@@ -83,8 +83,6 @@ class Controller():
 
     def post(self, data:dict={}):
         url = self.auth.getUrl(self.endpoint)
-        print(url)
-        print(json.dumps(data))
         return self.call(url, "post", data)
 
     def put(self, key:dict, data:dict={}):

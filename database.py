@@ -2,8 +2,11 @@
 
 import sqlite3
 from model import Model, Producto, Variacion
+import datetime
+import json
 
 dbfile = "data/file.db"
+logfile = "data/errors.log"
 max_rows = 250
 seconds = 1.0
 
@@ -52,7 +55,6 @@ def create():
     return True
 
 def get_row(sku='', table='items') :
-    print("get_row", sku, table)
     with sqlite3.connect(dbfile) as db:
         sql = f"SELECT * FROM {table} where sku=?;"
         db.row_factory = sqlite3.Row
@@ -62,6 +64,8 @@ def get_row(sku='', table='items') :
         return row
 
 def add_item(data):
+    if not data: return
+    if type(data[0])==list: data=data[0]
     db = sqlite3.connect(dbfile)
     sql = "insert or replace into items (id, sku, nombre) values (?, ?, ?);"
     for x in data:
@@ -70,9 +74,16 @@ def add_item(data):
     db.close()
 
 def add_children(data):
+    if not data: return
+    if type(data[0])==list: data=data[0]
     db = sqlite3.connect(dbfile)
     sql = "insert or replace into children (id, sku, product_id, color, talla) values (?, ?, ?, ?, ?);"
     for x in data:
         db.execute(sql, (x['id'], x['sku'], x['product_id'], x['color'], x['talla']))
     db.commit()    
     db.close()
+
+def log_error(error):
+    with open(logfile,"a") as f:
+        f.write(str(datetime.datetime.now())+"\n")
+        f.write(str(error))

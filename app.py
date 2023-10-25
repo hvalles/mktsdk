@@ -12,7 +12,8 @@ from apiparser import Parser
 
 load_dotenv()
 class LoaderEngine(tb.Frame):
-    MAX_ROWS = 10
+    MAX_ROWS = 50
+    MAX_ERRORS = 10
     def __init__(self, master):
         super().__init__(master, padding=15)
         self.grid(column=0, row=0, sticky=(N, W, E, S))
@@ -25,7 +26,7 @@ class LoaderEngine(tb.Frame):
         self.master = master
         self.xls=None
         self.controller:Controller = None
-        self.done = {}
+        self.errors = 0
 
         token = os.getenv('TOKEN')
         private = os.getenv("PRIVATE")
@@ -94,8 +95,6 @@ class LoaderEngine(tb.Frame):
             if type(r) is Producto: 
                 catalogo = True
                 r.categoria_id = self.xls.category.id
-                if self.done.get(r.sku):continue
-                self.done[r.sku]=True
             if self.action.get()=='update':
                 if type(r) is Producto:
                     sku = database.get_row(r.sku)
@@ -107,30 +106,35 @@ class LoaderEngine(tb.Frame):
                 secundario.append(r.asdict())
             else:
                 primario.append(r.asdict())
+        try:
+            if self.action.get()=='insert':
+                if primario: 
+                    primario = self.controller.post(primario)
+                    if catalogo: database.add_item(primario.get('answer',[]))
+                if secundario: 
+                    if catalogo:
+                        for x in secundario:
+                            sku = database.get_row(x['parent'])
+                            x['product_id'] = sku['id']       
+                            del x['parent']             
 
-        if self.action.get()=='insert':
-            if primario: 
-                primario = self.controller.post(primario)
-                if catalogo: database.add_item(primario.get('answer',[]))
-            if secundario: 
-                if catalogo:
-                    for x in secundario:
-                        sku = database.get_row(x['parent'])
-                        x['product_id'] = sku['id']       
-                        del x['parent']             
+                    secundario = self.controller.variacion.post(secundario)
+            else:
+                if primario: primario = self.controller.put(primario)
+                if secundario: 
+                    for x in secundario: del x['parent']             
+                    secundario = self.controller.variacion.put(secundario)
 
-                secundario = self.controller.variacion.post(secundario)
-        else:
-            if primario: primario = self.controller.put(primario)
-            if secundario: 
-                for x in secundario: del x['parent']             
-                secundario = self.controller.variacion.put(secundario)
+            if secundario:
+                database.add_children(secundario.get('answer',[]))
+        except Exception as e:   
+            print(str(e))     
+            database.log_error(e)
+            self.errors+=1
+            if self.errors > self.MAX_ERRORS:
+                messagebox.showerror("Error en aplicación", "Ha excedido el máximo de errores revise data/errors.log")
+                sys.exit(0)
 
-        if secundario:
-            database.add_children(secundario.get('answer',[]))
-
-        print("#"*50)
-        print(secundario)
         return (primario, secundario)
 
     def process_file(self):
@@ -164,6 +168,7 @@ class LoaderEngine(tb.Frame):
         tmp, self.controller = get_controller(self.cbo.current())
         self.xls = Excelfile(self.filename.get(),tmp)
         self.xls.open()
+        self.errors=0
         if tmp == ExcelType.MASTER: load_category()
         self.pb['maximum'] = self.xls.last_row
         self.pb.start()
@@ -177,7 +182,6 @@ class LoaderEngine(tb.Frame):
             if j>=self.MAX_ROWS:
                 j=0
                 res = self.process_chunk(data)
-                sys.exit(0)
                 data=[]
             self.pb['value'] = i
             self.master.update()

@@ -217,9 +217,6 @@ class Variacion(AliasedModel):
     _alias={}
     
     def get_alias(self, key):
-        if key in ['parent-sku', 'SKU', 'Código universal de producto']:
-            print ("Alias:", Variacion._alias)
-            print("Variacion get alias...", Variacion._alias.get(key,False))
         return Variacion._alias.get(key,False)
 
     def construct():
