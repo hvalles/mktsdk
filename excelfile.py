@@ -13,7 +13,7 @@ class ExcelType(Enum):
 
 class Excelfile():
     COL_CATEGORIA=10
-    def __init__(self, path, template:ExcelType, category:Categoria=None):
+    def __init__(self, path, template:ExcelType):
         self.fname =path
         self.template = template
         self.first_row = 2
@@ -23,8 +23,9 @@ class Excelfile():
         self.last_col = 1
         self.first_row = 1
         self.header = 1
-        self.category:Categoria=category
+        self.category:Categoria=None
         self.skus=[]
+        self.master=0
    
     def start_row(self):
         "According to template return what row start data to consume"
@@ -49,21 +50,29 @@ class Excelfile():
             else:
                 r = self.new_model()
             for i in range(1,self.last_col+1):                
-                col = self.hoja.cell(self.header, i).value()
-                if r.haskey(col):
-                    r[col] = self.hoja.cell(row, i).value()
-                else:
-                    if self.category and  r.haskey('atributos'):
-                        if primary and not self.category.isVariant(col):
-                            r.atributos[col]=self.hoja.cell(row, i).value()
-                        if not primary and self.category.isVariant(col):
-                            r.atributos[col]=self.hoja.cell(row, i).value()
+                col = self.hoja.cell(self.header, i).value
+                if not col: continue
+                value = self.hoja.cell(row, i).value
+                z=r.haskey(col)
+                print(type(r),col, z)
+                if z:
+                    if not value: value=''
+                    r[col] = value
+                if i>self.master and self.category and value and r.haskey('atributos') \
+                    and len(self.category._mapa)>=(i-(self.master+1)):
+                    col = self.category._mapa[i - (self.master+1)]
+                    if primary and self.category.isnotVariant(col):
+                        r.atributos.append({"atributo":col, 
+                            "valor":self.hoja.cell(row, i).value})
+                    if not primary and self.category.isVariant(col):
+                        r.atributos.append({"atributo":col, 
+                            "valor":self.hoja.cell(row, i).value})
 
         return r
 
     def read_row(self):
         "Generator for each row into model"
-        for i in range(self.start_row, self.last_row+1):
+        for i in range(self.first_row, self.last_row+1):
             if self.template==ExcelType.MASTER: # Yields 2 records
                 sku = self.hoja[f"A{i}"].value
                 if not sku in self.skus:
@@ -72,13 +81,6 @@ class Excelfile():
                 yield self.parse_model(i, False)
             else:
                 yield self.parse_model(i)
-
-    # def prepareMaster(self):
-    #     c:Categorias = Categorias()
-    #     cat = self.hoja.cell(self.first_row, self.COL_CATEGORIA).value()
-    #     p = Parser(Categorias, Categoria)
-    #     self.category = p.fetch_one({'name':cat})
-    #     self.category._atributos = p.fetch_all(func=)
 
     def open(self, sheet=None):
         "Open excel file and set initial values"

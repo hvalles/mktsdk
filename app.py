@@ -1,295 +1,296 @@
-import datetime
-import pathlib
-from queue import Queue
-from threading import Thread
-from tkinter.filedialog import askdirectory
-import ttkbootstrap as ttk
+import os,  sys, sqlite3, time, math
+from tkinter.filedialog import askopenfilename
+import ttkbootstrap as tb
 from ttkbootstrap.constants import *
-from ttkbootstrap import utility
+from tkinter import StringVar, messagebox, simpledialog
+from sdk import Auth, Controller, Productos, Variaciones, Categorias, Kits, Stocks, Precios
+from dotenv import load_dotenv
+import database
+from model import Categoria, Atributo, Producto, Stock, Variacion
+from excelfile import ExcelType, Excelfile
+from apiparser import Parser
 
-
-class FileSearchEngine(ttk.Frame):
-
-    queue = Queue()
-    searching = False
-
+load_dotenv()
+class LoaderEngine(tb.Frame):
+    MAX_ROWS = 10
     def __init__(self, master):
         super().__init__(master, padding=15)
-        self.pack(fill=BOTH, expand=YES)
+        self.grid(column=0, row=0, sticky=(N, W, E, S))
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        self.filename=StringVar()
+        self.archivo = StringVar()
+        self.db = None
+        self.auth=None
+        self.master = master
+        self.xls=None
+        self.controller:Controller = None
+        self.done = {}
+
+        token = os.getenv('TOKEN')
+        private = os.getenv("PRIVATE")
+        if token and private : self.auth = Auth(token=token, private=private)
+
+        _path = os.path.dirname(os.path.realpath(__file__))
+        _path = os.path.join(_path,"data")
+        if not os.path.exists(_path): os.mkdir(_path)
+        database.dbfile = os.path.join(_path,"file.db")
 
         # application variables
-        _path = pathlib.Path().absolute().as_posix()
-        self.path_var = ttk.StringVar(value=_path)
-        self.term_var = ttk.StringVar(value='md')
-        self.type_var = ttk.StringVar(value='endswidth')
+        row = 0
+        tb.Button(text="Bajar Prods", bootstyle="info", command=self.recover).grid(
+            row=row, column=1, padx=10, pady=5)
 
-        # header and labelframe option container
-        option_text = "Complete the form to begin your search"
-        self.option_lf = ttk.Labelframe(self, text=option_text, padding=15)
-        self.option_lf.pack(fill=X, expand=YES, anchor=N)
+        tb.Button(text="Limpiar Datos", bootstyle="info", command=self.truncate).grid(
+            row=row, column=3, padx=10, pady=5)
 
-        self.create_path_row()
-        self.create_term_row()
-        self.create_type_row()
-        self.create_results_view()
+        tb.Button(text="Llaves", bootstyle="info", command=self.setkeys).grid(
+            row=row, column=5, padx=10, pady=5)
 
-        self.progressbar = ttk.Progressbar(
-            master=self, 
-            mode=INDETERMINATE, 
-            bootstyle=(STRIPED, SUCCESS)
+        lista = ["Catalogo", "Precios", "Stock", "kits"]
+        row+=2
+        tb.Label(text="Tipo de archivo:").grid(row=row, column=1, padx=10, pady=5)
+        self.cbo = tb.Combobox(master=master, values=lista, textvariable=self.archivo)
+        self.cbo.grid(row=row, column=2, columnspan=2, padx=10,pady=5)
+        self.cbo.current(0)
+
+        self.action = StringVar()
+        tb.Radiobutton(master, text='Insertar', variable=self.action, 
+            value='insert').grid(row=row, column=4, padx=10, pady=5)
+        tb.Radiobutton(master, text='Actualizar', variable=self.action, 
+            value='update').grid(row=row, column=5, padx=10, pady=5)
+        self.action.set("insert")
+
+        row += 1
+        tb.Label(text="Ruta (xlsx):").grid(row=row, column=1,  padx=10, pady=5)
+        tb.Entry(master=master, width=50, textvariable=self.filename).grid(row=row, column=2, columnspan=3, padx=10,pady=5)
+        tb.Button(text="Buscar", bootstyle="success", command=self.open_file).grid(row=row, 
+            column=6, padx=10, pady=5)
+
+        row +=2
+        self.pb = tb.Progressbar(
+            master=master,
+            mode=DETERMINATE, 
+            bootstyle=(STRIPED, SUCCESS),
+            length=250
         )
-        self.progressbar.pack(fill=X, expand=YES)
+        self.pb.grid(row=row, column=0, columnspan=6)
 
-    def create_path_row(self):
-        """Add path row to labelframe"""
-        path_row = ttk.Frame(self.option_lf)
-        path_row.pack(fill=X, expand=YES)
-        path_lbl = ttk.Label(path_row, text="Path", width=8)
-        path_lbl.pack(side=LEFT, padx=(15, 0))
-        path_ent = ttk.Entry(path_row, textvariable=self.path_var)
-        path_ent.pack(side=LEFT, fill=X, expand=YES, padx=5)
-        browse_btn = ttk.Button(
-            master=path_row, 
-            text="Browse", 
-            command=self.on_browse, 
-            width=8
-        )
-        browse_btn.pack(side=LEFT, padx=5)
+        row += 2
+        tb.Button(text="Aceptar", bootstyle="primary", command=self.process).grid(
+            row=row, column=2, padx=10, pady=5)
+        tb.Button(text="Cancelar", bootstyle="danger", command=self.cancel).grid(
+            row=row, column=4, padx=10, pady=5)
 
-    def create_term_row(self):
-        """Add term row to labelframe"""
-        term_row = ttk.Frame(self.option_lf)
-        term_row.pack(fill=X, expand=YES, pady=15)
-        term_lbl = ttk.Label(term_row, text="Term", width=8)
-        term_lbl.pack(side=LEFT, padx=(15, 0))
-        term_ent = ttk.Entry(term_row, textvariable=self.term_var)
-        term_ent.pack(side=LEFT, fill=X, expand=YES, padx=5)
-        search_btn = ttk.Button(
-            master=term_row, 
-            text="Search", 
-            command=self.on_search, 
-            bootstyle=OUTLINE, 
-            width=8
-        )
-        search_btn.pack(side=LEFT, padx=5)
+    def open_file(self):
+        filename = askopenfilename(filetypes=[("Excel files", "*.xlsx")])
+        self.filename.set(filename)
 
-    def create_type_row(self):
-        """Add type row to labelframe"""
-        type_row = ttk.Frame(self.option_lf)
-        type_row.pack(fill=X, expand=YES)
-        type_lbl = ttk.Label(type_row, text="Type", width=8)
-        type_lbl.pack(side=LEFT, padx=(15, 0))
+    def process_chunk(self, data):
+        primario = []
+        secundario =[]
+        catalogo = False
+        for r in data:
+            if type(r) is Producto: 
+                catalogo = True
+                r.categoria_id = self.xls.category.id
+                if self.done.get(r.sku):continue
+                self.done[r.sku]=True
+            if self.action.get()=='update':
+                if type(r) is Producto:
+                    sku = database.get_row(r.sku)
+                    r['id'] = sku['id']
+                elif type(r) in [Stock, Variacion]:
+                    sku = database.get_row(r.sku,'children')
+                    r['product_id'] = sku['product_id']                    
+            if type(r) is Variacion:
+                secundario.append(r.asdict())
+            else:
+                primario.append(r.asdict())
 
-        contains_opt = ttk.Radiobutton(
-            master=type_row, 
-            text="Contains", 
-            variable=self.type_var, 
-            value="contains"
-        )
-        contains_opt.pack(side=LEFT)
+        if self.action.get()=='insert':
+            if primario: 
+                primario = self.controller.post(primario)
+                if catalogo: database.add_item(primario.get('answer',[]))
+            if secundario: 
+                if catalogo:
+                    for x in secundario:
+                        sku = database.get_row(x['parent'])
+                        x['product_id'] = sku['id']       
+                        del x['parent']             
 
-        startswith_opt = ttk.Radiobutton(
-            master=type_row, 
-            text="StartsWith", 
-            variable=self.type_var, 
-            value="startswith"
-        )
-        startswith_opt.pack(side=LEFT, padx=15)
-
-        endswith_opt = ttk.Radiobutton(
-            master=type_row, 
-            text="EndsWith", 
-            variable=self.type_var, 
-            value="endswith"
-        )
-        endswith_opt.pack(side=LEFT)
-        endswith_opt.invoke()
-
-    def create_results_view(self):
-        """Add result treeview to labelframe"""
-        self.resultview = ttk.Treeview(
-            master=self, 
-            bootstyle=INFO, 
-            columns=[0, 1, 2, 3, 4],
-            show=HEADINGS
-        )
-        self.resultview.pack(fill=BOTH, expand=YES, pady=10)
-
-        # setup columns and use `scale_size` to adjust for resolution
-        self.resultview.heading(0, text='Name', anchor=W)
-        self.resultview.heading(1, text='Modified', anchor=W)
-        self.resultview.heading(2, text='Type', anchor=E)
-        self.resultview.heading(3, text='Size', anchor=E)
-        self.resultview.heading(4, text='Path', anchor=W)
-        self.resultview.column(
-            column=0, 
-            anchor=W, 
-            width=utility.scale_size(self, 125), 
-            stretch=False
-        )
-        self.resultview.column(
-            column=1, 
-            anchor=W, 
-            width=utility.scale_size(self, 140), 
-            stretch=False
-        )
-        self.resultview.column(
-            column=2, 
-            anchor=E, 
-            width=utility.scale_size(self, 50), 
-            stretch=False
-        )
-        self.resultview.column(
-            column=3, 
-            anchor=E, 
-            width=utility.scale_size(self, 50), 
-            stretch=False
-        )
-        self.resultview.column(
-            column=4, 
-            anchor=W, 
-            width=utility.scale_size(self, 300)
-        )
-
-    def on_browse(self):
-        """Callback for directory browse"""
-        path = askdirectory(title="Browse directory")
-        if path:
-            self.path_var.set(path)
-
-    def on_search(self):
-        """Search for a term based on the search type"""
-        search_term = self.term_var.get()
-        search_path = self.path_var.get()
-        search_type = self.type_var.get()
-
-        if search_term == '':
-            return
-
-        # start search in another thread to prevent UI from locking
-        Thread(
-            target=FileSearchEngine.file_search, 
-            args=(search_term, search_path, search_type), 
-            daemon=True
-        ).start()
-        self.progressbar.start(10)
-
-        iid = self.resultview.insert(
-            parent='', 
-            index=END, 
-        )
-        self.resultview.item(iid, open=True)
-        self.after(100, lambda: self.check_queue(iid))
-
-    def check_queue(self, iid):
-        """Check file queue and print results if not empty"""
-        if all([
-            FileSearchEngine.searching, 
-            not FileSearchEngine.queue.empty()
-        ]):
-            filename = FileSearchEngine.queue.get()
-            self.insert_row(filename, iid)
-            self.update_idletasks()
-            self.after(100, lambda: self.check_queue(iid))
-        elif all([
-            not FileSearchEngine.searching,
-            not FileSearchEngine.queue.empty()
-        ]):
-            while not FileSearchEngine.queue.empty():
-                filename = FileSearchEngine.queue.get()
-                self.insert_row(filename, iid)
-            self.update_idletasks()
-            self.progressbar.stop()
-        elif all([
-            FileSearchEngine.searching,
-            FileSearchEngine.queue.empty()
-        ]):
-            self.after(100, lambda: self.check_queue(iid))
+                secundario = self.controller.variacion.post(secundario)
         else:
-            self.progressbar.stop()
+            if primario: primario = self.controller.put(primario)
+            if secundario: 
+                for x in secundario: del x['parent']             
+                secundario = self.controller.variacion.put(secundario)
 
-    def insert_row(self, file, iid):
-        """Insert new row in tree search results"""
-        try:
-            _stats = file.stat()
-            _name = file.stem
-            _timestamp = datetime.datetime.fromtimestamp(_stats.st_mtime)
-            _modified = _timestamp.strftime(r'%m/%d/%Y %I:%M:%S%p')
-            _type = file.suffix.lower()
-            _size = FileSearchEngine.convert_size(_stats.st_size)
-            _path = file.as_posix()
-            iid = self.resultview.insert(
-                parent='', 
-                index=END, 
-                values=(_name, _modified, _type, _size, _path)
-            )
-            self.resultview.selection_set(iid)
-            self.resultview.see(iid)
-        except OSError:
+        if secundario:
+            database.add_children(secundario.get('answer',[]))
+
+        print("#"*50)
+        print(secundario)
+        return (primario, secundario)
+
+    def process_file(self):
+        def load_category():
+            c:Categorias = Categorias(self.auth)
+            cat = self.xls.hoja.cell(self.xls.first_row, self.xls.COL_CATEGORIA).value
+            p = Parser(c, Categoria)
+            self.xls.category = p.fetch_one({'name':cat})
+            self.xls.master = p.fetch_raw(c.get_columns)
+            self.xls.master = int(self.xls.master.get('columnas',0))
+            p = Parser(c, Atributo)
+            self.xls.category.load_attributes(p.fetch_all(None, {}, c.get_attributes, self.xls.category.id))
+
+        def get_controller(idx):
+            if idx==0: 
+                tmp = ExcelType.MASTER
+                controller = Productos(self.auth)
+            elif idx==1: 
+                tmp = ExcelType.PRICE
+                controller=Precios(self.auth)
+            elif idx==2: 
+                tmp = ExcelType.STOCK
+                controller=Stocks(self.auth)
+            elif idx==3: 
+                tmp = ExcelType.KITS
+                controller=Kits(self.auth)
+            else:
+                raise TypeError("Opción no identificada")
+            return tmp, controller
+
+        tmp, self.controller = get_controller(self.cbo.current())
+        self.xls = Excelfile(self.filename.get(),tmp)
+        self.xls.open()
+        if tmp == ExcelType.MASTER: load_category()
+        self.pb['maximum'] = self.xls.last_row
+        self.pb.start()
+        i = 0
+        j = 0
+        data = []
+        done = {}
+        for r in self.xls.read_row() :
+            data.append(r)
+            i+=1;j+=1
+            if j>=self.MAX_ROWS:
+                j=0
+                res = self.process_chunk(data)
+                sys.exit(0)
+                data=[]
+            self.pb['value'] = i
+            self.master.update()
+
+        if j>0: self.process_chunk(data)
+        self.pb.stop()
+
+    def process(self):
+        if not self.archivo.get(): 
+            messagebox.showerror("Error en carga", "El tipo de carga es requerido")
             return
+        if not self.filename.get(): 
+            messagebox.showerror("Error en carga", "El archivo es requerido")
+            return
+        if not os.path.exists(self.filename.get()):
+            messagebox.showerror("Error en carga", "El archivo no existe")
+            return
+        if not str(self.filename.get()).lower().endswith(".xlsx"):
+            messagebox.showerror("Error en carga", "El La extensión del archivo no es la adecuada.")
+            return
+        if not str(self.action.get()).lower() in ['insert','update']:
+            messagebox.showerror("Error en carga", "La acción se se ha definido.")
+            return
+        if not self.auth:
+            messagebox.showerror("Error en carga", "Se requieren las credenciales para continuar.")
+            return
+        answer = messagebox.askyesno(title="Confirmación", message="Deseas proceder con la carga?")
+        if not answer: return
 
-    @staticmethod
-    def file_search(term, search_path, search_type):
-        """Recursively search directory for matching files"""
-        FileSearchEngine.set_searching(1)
-        if search_type == 'contains':
-            FileSearchEngine.find_contains(term, search_path)
-        elif search_type == 'startswith':
-            FileSearchEngine.find_startswith(term, search_path)
-        elif search_type == 'endswith':
-            FileSearchEngine.find_endswith(term, search_path)
+        self.process_file()
 
-    @staticmethod
-    def find_contains(term, search_path):
-        """Find all files that contain the search term"""
-        for path, _, files in pathlib.os.walk(search_path):
-            if files:
-                for file in files:
-                    if term in file:
-                        record = pathlib.Path(path) / file
-                        FileSearchEngine.queue.put(record)
-        FileSearchEngine.set_searching(False)
+    def cancel(self):
+        "Cleansup all data frominterface"
+        self.filename.set("")
+        self.cbo.current(0)
 
-    @staticmethod
-    def find_startswith(term, search_path):
-        """Find all files that start with the search term"""
-        for path, _, files in pathlib.os.walk(search_path):
-            if files:
-                for file in files:
-                    if file.startswith(term):
-                        record = pathlib.Path(path) / file
-                        FileSearchEngine.queue.put(record)
-        FileSearchEngine.set_searching(False)
+    def truncate(self):
+        "Removes all data from database"
+        answer = messagebox.askyesno(title="Confirmación", message="Deseas eliminar la bdd?")
+        if not answer: return
+        database.drop()
+        database.create()
 
-    @staticmethod
-    def find_endswith(term, search_path):
-        """Find all files that end with the search term"""
-        for path, _, files in pathlib.os.walk(search_path):
-            if files:
-                for file in files:
-                    if file.endswith(term):
-                        record = pathlib.Path(path) / file
-                        FileSearchEngine.queue.put(record)
-        FileSearchEngine.set_searching(False)
+    def setkeys(self):
+        token = os.getenv('TOKEN')
+        private = os.getenv("PRIVATE")
+        token = simpledialog.askstring("Llaves de conexión", 
+            "Introduzca token público:", initialvalue=token)
+        private = simpledialog.askstring("Llaves de conexión", 
+            "Introduzca llave privada:", initialvalue=private)
+        if token and private : 
+            self.auth = Auth(token=token, private=private)
+            with open(".env","wt") as f:
+                f.write(f"TOKEN={token}\n")
+                f.write(f"PRIVATE={token}\n")
 
-    @staticmethod
-    def set_searching(state=False):
-        """Set searching status"""
-        FileSearchEngine.searching = state
+    def getAnswer(self, data):
+        "Retrieve each recovered row from REST API Call."
+        if data.get('answer'):
+            for x in data.get('answer'):
+                yield x
 
-    @staticmethod
-    def convert_size(size):
-        """Convert bytes to mb or kb depending on scale"""
-        kb = size // 1000
-        mb = round(kb / 1000, 1)
-        if kb > 1000:
-            return f'{mb:,.1f} MB'
-        else:
-            return f'{kb:,d} KB'        
+    def recover(self):
+        "Retrieve all items and save them all in database, for verify later ids"
+        db = sqlite3.connect(database.dbfile)
+        productos = Productos(auth=self.auth)
+        total = productos.get_count()        
+        pages = math.ceil(total / database.max_rows)
+        self.pb['maximum'] = pages
+        self.pb['value'] = 0
+        self.pb.start()
+        sql = "insert or ignore into items (id, sku, nombre) values (?, ?, ?);"
+        for i in range(0,pages):
+            items = productos.get_list(database.max_rows, database.max_rows * i)
+            for x in self.getAnswer(items):
+                db.execute(sql, (x['id'], x['sku'], x['nombre']))
+            db.commit()    
+            self.pb['value'] = i
+            self.master.update()
+            time.sleep(database.seconds)
+        self.pb['value'] = pages
+        self.pb.stop()
+        db.close()
+        return self.recover_children()
+
+    def recover_children(self):
+        "Retrieve all children and save them all in database, for verify later ids"
+        db = sqlite3.connect(database.dbfile)
+        children = Variaciones(auth=self.auth)
+        total = children.get_count()
+        pages = math.ceil(total / database.max_rows)
+        self.pb['maximum'] = pages
+        self.pb['value'] = 0
+        self.pb.start()
+        sql = "insert or ignore into children (id, sku, product_id, color, talla) values (?, ?, ?, ?, ?);"
+        for i in range(0,pages):
+            items = children.get_list(database.max_rows, database.max_rows * i)
+            for x in self.getAnswer(items):
+                db.execute(sql, (x['id'], x['sku'], x['product_id'], x['color'], x['talla']))
+            db.commit()    
+            self.pb['value'] = i
+            self.master.update()
+            time.sleep(database.seconds)
+        self.pb['value'] = pages
+        self.pb.stop()
+
+        db.close()
+        return True
 
 
 if __name__ == '__main__':
 
-    app = ttk.Window("File Search Engine", "journal")
-    FileSearchEngine(app)
+    theme = os.getenv("THEME", "cosmo")
+    app = tb.Window("MarketSync Loader", theme)
+    LoaderEngine(app)
     app.mainloop()

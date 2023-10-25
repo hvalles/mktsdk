@@ -2,8 +2,7 @@
 class Model:
     "Model class all objects are derived fom it"
     
-    @staticmethod
-    def use_alias():
+    def use_alias(self):
         return False
     
     def get_alias(self, key):
@@ -18,10 +17,6 @@ class Model:
         if hasattr(self, key): setattr(self, key, value)
         if self.use_alias() and self.get_alias(key): 
             setattr(self, self.get_alias(key), value)
-
-    def __delattr__(self, name):
-        "Delete  non register attributes"
-        del self._columns[name]
 
     def setter(self, record:dict):
         "Set values from record to Model child object, includes mapping it"
@@ -40,9 +35,6 @@ class Model:
         for k in keys:
             if not str(k).startswith('_') and str(k)!='id':
                 data[k] = getattr(self, k)
-        for k in self._columns.keys():
-            if not str(k).startswith('_'):
-                data[k] = self._columns.get(k)
                 
         return data
 
@@ -57,7 +49,7 @@ class Model:
         alias = self.get_alias(key)
         if alias : return alias
         return key
-
+    
     @staticmethod
     def _printup(obj, level = 0):
         "Display structure of model"
@@ -105,7 +97,7 @@ class Model:
         return Model._printup(self)
 
 class AliasedModel(Model):
-    def use_alias():
+    def use_alias(self):
         return True    
 
 class Color(Model):
@@ -121,6 +113,12 @@ class Categoria(Model):
         self.permite_variacion:int = 0
         self.filtros:list = []
         self._atributos={}
+        self._mapa=[]
+
+    def load_attributes(self, lista=[]):
+        for a in lista:
+            self._atributos[a.atributo] = a
+            self._mapa.append(a.atributo)
 
     def isMandatory(self, key):
         a:Atributo = self._atributos.get(key)
@@ -130,14 +128,12 @@ class Categoria(Model):
     def isVariant(self, key):
         a:Atributo = self._atributos.get(key)
         if not a: return False
-        return bool(a.variacion)
+        return int(a.variacion)
     
-    def isCombination(self, key):
+    def isnotVariant(self, key):
         a:Atributo = self._atributos.get(key)
         if not a: return False
-        return int(a.variacion)==2
-
-        
+        return bool(a.variacion)
 
 class Market(Model):
     def __init__(self):
@@ -165,7 +161,7 @@ class Producto(AliasedModel):
     def get_alias(self, key):
         return Producto._alias.get(key,False)
 
-    def construct(self):
+    def construct():
         Producto.constructed=True
         Producto._alias={}
         Producto._alias['parent-sku'] = 'sku'
@@ -179,18 +175,20 @@ class Producto(AliasedModel):
         Producto._alias['peso-paq']='ppeso'
         Producto._alias['tipo-publicacion']='listing_type_id'
         Producto._alias['pais']='origen'
+        Producto._alias['Marca']='marca'
+        Producto._alias['Modelo']='modelo'
+        Producto._alias['n_modelo']='nombre_modelo'
     
     def __init__(self):
         self.id:int = 0
-        self.cliente_id:int = 0
+        self.sku:str = None
         self.nombre:str=None
-        self.descripcion:str=None
+        self.descripcion:str=''
         self.ficha:str=None
         self.alto:float= 0.00
         self.ancho:float = 0.00
         self.largo:float = 0.00
         self.peso:float = 0.000
-        self.sku:str = None
         self.dias_embarque:int=0
         self.categoria_id:int=0
         self.filtro_id:int=0
@@ -214,7 +212,24 @@ class Producto(AliasedModel):
         if not Producto.constructed: Producto.construct()
 
 
-class Variacion(Model):
+class Variacion(AliasedModel):
+    constructed=False
+    _alias={}
+    
+    def get_alias(self, key):
+        if key in ['parent-sku', 'SKU', 'Código universal de producto']:
+            print ("Alias:", Variacion._alias)
+            print("Variacion get alias...", Variacion._alias.get(key,False))
+        return Variacion._alias.get(key,False)
+
+    def construct():
+        Variacion.constructed=True
+        Variacion._alias={}
+        Variacion._alias['parent-sku'] = 'parent'
+        Variacion._alias['SKU'] = 'sku'
+        Variacion._alias['Código universal de producto']="gtin"
+        Variacion._alias['color_base']='base'
+
     def __init__(self):
         self.product_id:int=0
         self.sku:str=None
@@ -240,6 +255,8 @@ class Variacion(Model):
         self.bullet4:str=None
         self.bullet5:str=None
         self.atributos:list = []
+        self.parent:str=None
+        if not Variacion.constructed: Variacion.construct()
 
 class Componente(Model):
     def __init__(self):
@@ -253,14 +270,37 @@ class Kit(Model):
         self.comentario:str=None
         self.componentes:list=[]
 
-class Precio(Model):
+class Precio(AliasedModel):
+    constructed=False
+    _alias={}
+    
+    def get_alias(self, key):
+        return Precio._alias.get(key,False)
+
+    def construct():
+        Precio.constructed=True
+        Precio._alias={}
+        Precio._alias['sku'] = '_sku'
+
     def __init__(self):
         self.market_id:int=0
         self.product_id:int = 0
         self.precio:float=0.00
         self.oferta:float=0.00
+        self._sku:str=None
 
-class Stock(Model):
+class Stock(AliasedModel):
+    constructed=False
+    _alias={}
+    
+    def get_alias(self, key):
+        return Stock._alias.get(key,False)
+
+    def construct():
+        Stock.constructed=True
+        Stock._alias={}
+        Stock._alias['sku'] = 'seller_sku'
+
     def __init__(self):
         self.seller_sku:str = None
         self.product_id:int=0

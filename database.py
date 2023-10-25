@@ -1,10 +1,12 @@
 """database: file contains structure for data tables and db objects"""
 
 import sqlite3
+from model import Model, Producto, Variacion
 
 dbfile = "data/file.db"
 max_rows = 250
 seconds = 1.0
+
 
 def drop():
     db = sqlite3.connect(dbfile)
@@ -40,7 +42,8 @@ def create():
             id INTEGER PRIMARY KEY,
             sku TEXT NOT NULL,
             color TEXT NULL,
-            talla TEXT NULL
+            talla TEXT NULL,
+            product_id INTEGER
         );"""
     cursor = db.execute(sql)
     sql = "CREATE UNIQUE INDEX child_sku ON children(sku);"
@@ -49,9 +52,27 @@ def create():
     return True
 
 def get_row(sku='', table='items') :
+    print("get_row", sku, table)
     with sqlite3.connect(dbfile) as db:
         sql = f"SELECT * FROM {table} where sku=?;"
-        cursor = db.execute(sql,(sku))
+        db.row_factory = sqlite3.Row
+        cursor = db.execute(sql, (sku,))
         row = cursor.fetchone()
         cursor.close()
         return row
+
+def add_item(data):
+    db = sqlite3.connect(dbfile)
+    sql = "insert or replace into items (id, sku, nombre) values (?, ?, ?);"
+    for x in data:
+        db.execute(sql, (x['id'], x['sku'], x['nombre']))
+    db.commit()    
+    db.close()
+
+def add_children(data):
+    db = sqlite3.connect(dbfile)
+    sql = "insert or replace into children (id, sku, product_id, color, talla) values (?, ?, ?, ?, ?);"
+    for x in data:
+        db.execute(sql, (x['id'], x['sku'], x['product_id'], x['color'], x['talla']))
+    db.commit()    
+    db.close()

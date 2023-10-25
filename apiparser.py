@@ -3,7 +3,7 @@ from sdk import Controller, Categorias, Productos
 
 class Parser():
     def __init__(self, controller:Controller, model:Model):
-        self.controller:Controller = controller()
+        self.controller:Controller = controller
         self.model = model
 
     def fetch_one(self, params=None, data={}):
@@ -27,6 +27,11 @@ class Parser():
                 todos.append(r.setter(x))
         return todos
 
+    def fetch_raw(self, func, *args):
+        "Returns raw answer from api rest"
+        rows = func(*args)
+        if rows and rows.get('answer'):  return rows.get('answer')
+        return {}
 
 
         

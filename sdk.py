@@ -8,12 +8,12 @@ import json
 class Auth():
     SANDBOX="https://sandbox.marketsync.mx/api"
     PRODUCTION="https://web.marketsync.mx/api"
-    parameters = {}
 
     def __init__(self, private:str, token:str, production:bool=False) -> None:
         self.private = private
         self.token=token
         self.production=production
+        self.parameters = {}
 
     def getServer(self):
         if self.production:
@@ -28,8 +28,7 @@ class Auth():
     def getUrl(self, controller='', parameters:dict={}):
         if controller.find('?') == -1: controller+='?'
         if not controller.startswith('/') : controller ='/'+controller
-        if bool(parameters): 
-            self.parameters=parameters
+        self.parameters=parameters
         self.parameters['token'] = self.token
         self.parameters['timestamp'] = str(datetime.now().isoformat())[:19]
         self.parameters['version'] = '1.0'
@@ -49,12 +48,15 @@ class Controller():
         if data:
             if method=='get':
                 r = requests.get(url, json=data, timeout=self.TIMEOUT)
+                if not r: raise Exception(r.text)
                 return r.json()
             if method=='post':
                 r = requests.post(url, json=data, timeout=self.TIMEOUT)
+                if not r: raise Exception(r.text)
                 return r.json()
             if method=='put':
                 r = requests.put(url, json=data, timeout=self.TIMEOUT)
+                if not r: raise Exception(r.text)
                 return r.json()
             raise Exception("Method not allowed.")
 
@@ -81,6 +83,8 @@ class Controller():
 
     def post(self, data:dict={}):
         url = self.auth.getUrl(self.endpoint)
+        print(url)
+        print(json.dumps(data))
         return self.call(url, "post", data)
 
     def put(self, key:dict, data:dict={}):
@@ -108,6 +112,11 @@ class Categorias(Controller):
         url = self.auth.getUrl(self.endpoint+f"/atributos/{category_id}")
         return self.call(url, "get")
 
+    def get_columns(self):
+        url = self.auth.getUrl(self.endpoint+f"/columnas")
+        return self.call(url, "get")
+
+
 class Markets(Controller):
     def __init__(self, auth:Auth=None) -> None:
         self.endpoint='markets'
@@ -118,10 +127,22 @@ class Kits(Controller):
         self.endpoint='kits'
         self.auth = auth
 
+class Stocks(Controller):
+    def __init__(self, auth:Auth=None) -> None:
+        self.endpoint='stock'
+        self.auth = auth
+
+class Precios(Controller):
+    def __init__(self, auth:Auth=None) -> None:
+        self.endpoint='precios'
+        self.auth = auth
+
+
 class Productos(Controller):
     def __init__(self, auth:Auth=None) -> None:
         self.endpoint='productos'
         self.auth = auth
+        self.variacion:Controller = Variaciones(auth)
 
     def get_count(self):
         "Get total count of records"
@@ -135,7 +156,7 @@ class Productos(Controller):
         "Get list of records from server"
         url = self.auth.getUrl(self.endpoint+f"/listkeys/{limit}/{offset}/{order}")
         return self.call(url, "get")
-
+    
 class Variaciones(Controller):
     def __init__(self, auth:Auth=None) -> None:
         self.endpoint='variacion'
