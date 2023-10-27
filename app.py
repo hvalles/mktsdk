@@ -33,8 +33,15 @@ class LoaderEngine(tb.Frame):
         if token and private : self.auth = Auth(token=token, private=private, production=True)
 
         _path = os.path.dirname(os.path.realpath(__file__))
+        if getattr(sys, 'frozen', False):
+            _path = os.path.dirname(sys.executable)
         _path = os.path.join(_path,"data")
-        if not os.path.exists(_path): os.mkdir(_path)
+
+        try:
+            if not os.path.exists(_path): os.mkdir(_path)
+        except Exception as e:
+            messagebox.showerror("Error al crear estructura", str(e))
+            sys.exit(0)
         database.dbfile = os.path.join(_path,"file.db")
 
         # application variables
@@ -273,6 +280,13 @@ class LoaderEngine(tb.Frame):
 
     def recover(self):
         "Retrieve all items and save them all in database, for verify later ids"
+
+        if not self.auth:
+            messagebox.showerror("Error","Es necesario alimentar las redenciales (llaves)")
+            return
+
+        database.drop()
+        database.create()
         db = sqlite3.connect(database.dbfile)
         productos = Productos(auth=self.auth)
         total = productos.get_count()        
@@ -298,7 +312,6 @@ class LoaderEngine(tb.Frame):
             data = f.readlines()
         for l in data:            
             r = l.split()
-            print(r)
             if len(r)<2: continue
             db.execute(sql, (r[0], r[1]))
         db.commit()    
