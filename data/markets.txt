@@ -1,0 +1,17 @@
+6	Amazon
+17	AmazonUS
+1	Claro
+10	Elektra
+2	Linio
+4	Mercadolibre
+13	Mercadolibre2
+14	Mercadolibre3
+8	Prestashop
+16	Sears
+8	Shopify
+12	Shopify2
+15	Shopify3
+18	Shopify4
+19	Shopify5
+5	Walmart
+9	Wish

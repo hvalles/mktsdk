@@ -56,7 +56,8 @@ class Controller():
                 return r.json()
             if method=='put':
                 r = requests.put(url, json=data, timeout=self.TIMEOUT)
-                if not r: raise Exception(r.text)
+                if not r: 
+                    raise Exception(r.text)
                 return r.json()
             raise Exception("Method not allowed.")
 
@@ -85,12 +86,12 @@ class Controller():
         url = self.auth.getUrl(self.endpoint)
         return self.call(url, "post", data)
 
-    def put(self, key:dict, data:dict={}):
+    def put(self, key:dict=None, data:dict={}):
         if not key: key={}
         url = self.auth.getUrl(self.endpoint, key)
         return self.call(url, "put", data)
 
-    def delete(self, key:dict):
+    def delete(self, key:dict=None):
         if not key: key={}
         url = self.auth.getUrl(self.endpoint, key)
         return self.call(url, "delete")

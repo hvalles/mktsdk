@@ -270,6 +270,7 @@ class Kit(Model):
 class Precio(AliasedModel):
     constructed=False
     _alias={}
+    _markets={}
     
     def get_alias(self, key):
         return Precio._alias.get(key,False)
@@ -278,6 +279,10 @@ class Precio(AliasedModel):
         Precio.constructed=True
         Precio._alias={}
         Precio._alias['sku'] = '_sku'
+        Precio._alias['parent-sku'] = '_sku'
+        Precio._alias['Marketplace'] = '_marketplace'
+        Precio._alias['Precio'] = 'precio'
+        Precio._alias['Oferta'] = 'oferta'        
 
     def __init__(self):
         self.market_id:int=0
@@ -285,6 +290,12 @@ class Precio(AliasedModel):
         self.precio:float=0.00
         self.oferta:float=0.00
         self._sku:str=None
+        self._marketplace:str=None
+        if not Precio.constructed: Precio.construct()
+
+    def get_market(self):
+        if not self._marketplace: return 0
+        return Precio._markets.get(self._marketplace.lower(), 0)
 
 class Stock(AliasedModel):
     constructed=False
@@ -297,8 +308,11 @@ class Stock(AliasedModel):
         Stock.constructed=True
         Stock._alias={}
         Stock._alias['sku'] = 'seller_sku'
+        Stock._alias['Hijo'] = 'seller_sku'
+        Stock._alias['Stock'] = 'stock'
 
     def __init__(self):
         self.seller_sku:str = None
         self.product_id:int=0
         self.stock:int=0
+        if not Stock.constructed: Stock.construct()

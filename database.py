@@ -21,6 +21,8 @@ def drop():
     cursor = db.execute(sql)
     sql = "drop table children;"
     cursor = db.execute(sql)
+    sql = "drop table markets;"
+    cursor = db.execute(sql)
     db.close()
     return True
 
@@ -51,8 +53,24 @@ def create():
     cursor = db.execute(sql)
     sql = "CREATE UNIQUE INDEX child_sku ON children(sku);"
     cursor = db.execute(sql)
+
+    sql="""CREATE TABLE markets (
+    id int(11) NOT NULL PRIMARY KEY,
+    market varchar(100) NOT NULL
+    );"""
+    cursor = db.execute(sql)
+
     db.close()
     return True
+
+def get_all(table=''):
+    with sqlite3.connect(dbfile) as db:
+        sql = f"SELECT * FROM {table};"
+        db.row_factory = sqlite3.Row
+        cursor = db.execute(sql)
+        rows = cursor.fetchall()
+        cursor.close()
+        return rows
 
 def get_row(sku='', table='items') :
     with sqlite3.connect(dbfile) as db:
@@ -86,4 +104,4 @@ def add_children(data):
 def log_error(error):
     with open(logfile,"a") as f:
         f.write(str(datetime.datetime.now())+"\n")
-        f.write(str(error))
+        f.write(str(error)+"\n")

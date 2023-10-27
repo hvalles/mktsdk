@@ -29,14 +29,14 @@ class Excelfile():
    
     def start_row(self):
         "According to template return what row start data to consume"
-        if self.template == ExcelType.MASTER: return 3
+        if self.template in [ExcelType.MASTER, ExcelType.STOCK]: return 3
         return 2
 
     def new_model(self):
         "Creates  a new object according to template"
-        if self.template==ExcelType.CATALOGO: return Producto()
+        if self.template==ExcelType.MASTER: return Producto()
         if self.template==ExcelType.KITS: return Kit()
-        if self.template==ExcelType.PRECIOS: return Precio()
+        if self.template==ExcelType.PRICE: return Precio()
         if self.template==ExcelType.STOCK: return Stock()
         if self.template==ExcelType.VARIACION : return Variacion()
         raise TypeError()

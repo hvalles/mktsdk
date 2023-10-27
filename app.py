@@ -6,7 +6,7 @@ from tkinter import StringVar, messagebox, simpledialog
 from sdk import Auth, Controller, Productos, Variaciones, Categorias, Kits, Stocks, Precios
 from dotenv import load_dotenv
 import database
-from model import Categoria, Atributo, Producto, Stock, Variacion
+from model import Categoria, Atributo, Producto, Stock, Variacion, Precio
 from excelfile import ExcelType, Excelfile
 from apiparser import Parser
 
@@ -87,6 +87,14 @@ class LoaderEngine(tb.Frame):
         filename = askopenfilename(filetypes=[("Excel files", "*.xlsx")])
         self.filename.set(filename)
 
+    def check_error(self, e):
+        print(str(e))     
+        database.log_error(e)
+        self.errors+=1
+        if self.errors > self.MAX_ERRORS:
+            messagebox.showerror("Error en aplicación", "Ha excedido el máximo de errores revise data/errors.log")
+            sys.exit(0)
+
     def process_chunk(self, data):
         primario = []
         secundario =[]
@@ -98,10 +106,24 @@ class LoaderEngine(tb.Frame):
             if self.action.get()=='update':
                 if type(r) is Producto:
                     sku = database.get_row(r.sku)
+                    if not sku: 
+                        self.check_error(f"El sku no se ha localizado {r._sku}.")
+                        continue
                     r['id'] = sku['id']
                 elif type(r) in [Stock, Variacion]:
-                    sku = database.get_row(r.sku,'children')
+                    label = 'sku' if type(r) == Variacion else 'seller_sku'
+                    sku = database.get_row(r[label],'children')
+                    if not sku: 
+                        self.check_error(f"El sku no se ha localizado {r[label]}.")
+                        continue
                     r['product_id'] = sku['product_id']                    
+                elif type(r) is Precio: 
+                    r.market_id = r.get_market()
+                    sku = database.get_row(r._sku)
+                    if not sku: 
+                        self.check_error(f"El sku no se ha localizado {r._sku}.")
+                        continue
+                    r['product_id'] = sku['id']
             if type(r) is Variacion:
                 secundario.append(r.asdict())
             else:
@@ -120,20 +142,15 @@ class LoaderEngine(tb.Frame):
 
                     secundario = self.controller.variacion.post(secundario)
             else:
-                if primario: primario = self.controller.put(primario)
+                if primario: 
+                    primario = self.controller.put(None, primario)
                 if secundario: 
                     for x in secundario: del x['parent']             
                     secundario = self.controller.variacion.put(secundario)
 
-            if secundario:
-                database.add_children(secundario.get('answer',[]))
+            if secundario: database.add_children(secundario.get('answer',[]))
         except Exception as e:   
-            print(str(e))     
-            database.log_error(e)
-            self.errors+=1
-            if self.errors > self.MAX_ERRORS:
-                messagebox.showerror("Error en aplicación", "Ha excedido el máximo de errores revise data/errors.log")
-                sys.exit(0)
+            self.check_error(e)
 
         return (primario, secundario)
 
@@ -147,6 +164,11 @@ class LoaderEngine(tb.Frame):
             self.xls.master = int(self.xls.master.get('columnas',0))
             p = Parser(c, Atributo)
             self.xls.category.load_attributes(p.fetch_all(None, {}, c.get_attributes, self.xls.category.id))
+
+        def load_markets():
+            rows = database.get_all("markets")
+            for r in rows:
+                Precio._markets[str(r['market']).lower()]=r['id']
 
         def get_controller(idx):
             if idx==0: 
@@ -166,10 +188,14 @@ class LoaderEngine(tb.Frame):
             return tmp, controller
 
         tmp, self.controller = get_controller(self.cbo.current())
+        if (tmp == ExcelType.PRICE or tmp == ExcelType.STOCK) and self.action.get()=='insert':
+            messagebox.showerror("Error en carga", "El tipo de archivo, no permite inserción")
+            return
         self.xls = Excelfile(self.filename.get(),tmp)
         self.xls.open()
         self.errors=0
         if tmp == ExcelType.MASTER: load_category()
+        if tmp == ExcelType.PRICE: load_markets()
         self.pb['maximum'] = self.xls.last_row
         self.pb.start()
         i = 0
@@ -212,6 +238,7 @@ class LoaderEngine(tb.Frame):
         if not answer: return
 
         self.process_file()
+        messagebox.showinfo("Proceso", "El proceso ha concluído")
 
     def cancel(self):
         "Cleansup all data frominterface"
@@ -264,7 +291,19 @@ class LoaderEngine(tb.Frame):
             time.sleep(database.seconds)
         self.pb['value'] = pages
         self.pb.stop()
+
+        sql = "insert or ignore into markets (id, market) values (?, ?);"
+        data = None
+        with open('data/markets.txt',"r") as f:
+            data = f.readlines()
+        for l in data:            
+            r = l.split()
+            print(r)
+            if len(r)<2: continue
+            db.execute(sql, (r[0], r[1]))
+        db.commit()    
         db.close()
+
         return self.recover_children()
 
     def recover_children(self):
@@ -289,6 +328,7 @@ class LoaderEngine(tb.Frame):
         self.pb.stop()
 
         db.close()
+        messagebox.showinfo("Proceso finalizado","El proceso ha descargado toda la información")
         return True
 
 
