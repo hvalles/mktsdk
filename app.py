@@ -30,7 +30,7 @@ class LoaderEngine(tb.Frame):
 
         token = os.getenv('TOKEN')
         private = os.getenv("PRIVATE")
-        if token and private : self.auth = Auth(token=token, private=private)
+        if token and private : self.auth = Auth(token=token, private=private, production=True)
 
         _path = os.path.dirname(os.path.realpath(__file__))
         _path = os.path.join(_path,"data")
@@ -260,7 +260,7 @@ class LoaderEngine(tb.Frame):
         private = simpledialog.askstring("Llaves de conexión", 
             "Introduzca llave privada:", initialvalue=private)
         if token and private : 
-            self.auth = Auth(token=token, private=private)
+            self.auth = Auth(token=token, private=private, production=True)
             with open(".env","wt") as f:
                 f.write(f"TOKEN={token}\n")
                 f.write(f"PRIVATE={token}\n")
