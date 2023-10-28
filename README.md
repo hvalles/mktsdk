@@ -37,7 +37,7 @@ There is a file named data/markets.txt, and contais all marketplaces recognized 
 Please do not alter header of templates, as they are needed for identify all columns, in the case of master product's template, you may download each file by Category of product as their attributes may vary among them.
 
 # Module excelfile 
-This module would process each row of template file and returns a model with all columned matched according modules's structure.
+This module would process each row of template file and returns a model with all columns matched according modules's fields.
 
 # Warning
 Credentials are going to be stored in plain text inside a ".env" file, in the same folder as the exe file.
