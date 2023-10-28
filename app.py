@@ -1,4 +1,4 @@
-import os,  sys, sqlite3, time, math, traceback
+import os,  sys, sqlite3, time, math, traceback, json
 from tkinter.filedialog import askopenfilename
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
@@ -136,7 +136,10 @@ class LoaderEngine(tb.Frame):
             if type(r) is Variacion:
                 secundario.append(r.asdict())
             else:
-                primario.append(r.asdict())
+                if type(r) is Producto:
+                    primario.append(r.asdict(['sku','categoria_id','filtro_id','listing_type_id']))
+                else:
+                    primario.append(r.asdict())
         try:
             if self.action.get()=='insert':
                 if primario: 

@@ -44,6 +44,12 @@ class Controller():
         self.endpoint=endpoint
         self.auth = auth
 
+    def check_answer(self, r):
+        if not r: raise Exception(r.text)
+        e = r.json().get('answer',{})
+        if type(e) is dict:
+            e = e.get('error')
+            if e: raise Exception(e)
 
     def call(self, url, method="get", data=None):
         if not self.auth: raise Exception("Authorization  required!")
@@ -54,12 +60,11 @@ class Controller():
                 return r.json()
             if method=='post':
                 r = requests.post(url, json=data, timeout=self.TIMEOUT)
-                if not r: raise Exception(r.text)
+                self.check_answer(r)
                 return r.json()
             if method=='put':
                 r = requests.put(url, json=data, timeout=self.TIMEOUT)
-                if not r: 
-                    raise Exception(r.text)
+                self.check_answer(r)
                 return r.json()
             raise Exception("Method not allowed.")
 

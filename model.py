@@ -29,11 +29,12 @@ class Model:
 
         return self
 
-    def asdict(self):
+    def asdict(self, exclude=[]):
         "Returns a dict of all attributes"
         keys = vars(self)
         data = {}
         for k in keys:
+            if k in exclude: continue
             if not str(k).startswith('_') and str(k)!='id':
                 data[k] = getattr(self, k)
                 
@@ -182,6 +183,7 @@ class Producto(AliasedModel):
     
     def __init__(self):
         self.id:int = 0
+        self.product_id:int = 0
         self.sku:str = None
         self.nombre:str=None
         self.descripcion:str=''
