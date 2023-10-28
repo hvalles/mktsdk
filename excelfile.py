@@ -1,7 +1,7 @@
 import os
 from  enum import Enum
 from openpyxl import load_workbook
-from model import Producto, Categoria, Atributo, Kit, Variacion, Stock, Precio, Model
+from model import Producto, Categoria, Componente, Kit, Variacion, Stock, Precio, Model
 
 class ExcelType(Enum):
     ## Template clasification
@@ -41,6 +41,18 @@ class Excelfile():
         if self.template==ExcelType.VARIACION : return Variacion()
         raise TypeError()
 
+    def parse_kit(self, row:int=0, previo=None):
+        # Handled by positional columns
+        r = previo if previo else Kit()
+        if not previo:
+            r.sku = self.hoja.cell(row, 1).value
+            r.comentario = self.hoja.cell(row, 2).value
+        c:Componente=Componente()
+        c.sku=self.hoja.cell(row, 3).value
+        c.cantidad=self.hoja.cell(row, 4).value
+        r.componentes.append(c)
+        return r
+
     def parse_model(self, row:int=0, primary=True):
         "Read Excel row and return model object"
         r:Model = None
@@ -49,6 +61,8 @@ class Excelfile():
                 r = Producto() if primary else Variacion()
             else:
                 r = self.new_model()
+                   
+            # Named columns
             for i in range(1,self.last_col+1):                
                 col = self.hoja.cell(self.header, i).value
                 if not col: continue
@@ -71,6 +85,7 @@ class Excelfile():
 
     def read_row(self):
         "Generator for each row into model"
+        previo = None
         for i in range(self.first_row, self.last_row+1):
             if self.template==ExcelType.MASTER: # Yields 2 records
                 sku = self.hoja[f"A{i}"].value
@@ -79,7 +94,15 @@ class Excelfile():
                     self.skus.append(sku)
                 yield self.parse_model(i, False)
             else:
-                yield self.parse_model(i)
+                if self.template==ExcelType.KITS: # Yields by group
+                    r = self.parse_kit(i, previo)
+                    if not previo: previo = r
+                    if previo.sku!=r.sku:
+                        yield previo
+                        previo = r
+                else:
+                    yield self.parse_model(i)
+        if previo: yield previo
 
     def open(self, sheet=None):
         "Open excel file and set initial values"

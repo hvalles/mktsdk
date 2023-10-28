@@ -20,6 +20,7 @@ class Model:
 
     def setter(self, record:dict):
         "Set values from record to Model child object, includes mapping it"
+        if not record or type(record) is str: return None
         for k in record.keys():
             if self.use_alias(): 
                 self[self.map(k)] = record[k]
@@ -262,10 +263,10 @@ class Componente(Model):
 
 class Kit(Model):
     def __init__(self):
-        self.id:int=0
         self.sku:str=None
         self.comentario:str=None
         self.componentes:list=[]
+   
 
 class Precio(AliasedModel):
     constructed=False

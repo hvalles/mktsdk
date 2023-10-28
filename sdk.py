@@ -34,10 +34,12 @@ class Auth():
         self.parameters['version'] = '1.0'
         data = dict(sorted(self.parameters.items()))
         concatenated = str(urllib.parse.urlencode(data))
-        return self.getServer() + controller + concatenated + '&signature=' + self.signature(concatenated)
+        url =self.getServer() + controller + concatenated + '&signature=' + self.signature(concatenated)
+        print(url)
+        return url
 
 class Controller():    
-    TIMEOUT=3.0
+    TIMEOUT=60.0
     def __init__(self, endpoint:str, auth:Auth=None) -> None:
         self.endpoint=endpoint
         self.auth = auth
@@ -88,12 +90,12 @@ class Controller():
 
     def put(self, key:dict=None, data:dict={}):
         if not key: key={}
-        url = self.auth.getUrl(self.endpoint, key)
+        url = self.auth.getUrl(self.endpoint)
         return self.call(url, "put", data)
 
     def delete(self, key:dict=None):
         if not key: key={}
-        url = self.auth.getUrl(self.endpoint, key)
+        url = self.auth.getUrl(self.endpoint)
         return self.call(url, "delete")
 
 class Colores(Controller):

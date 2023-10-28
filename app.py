@@ -1,4 +1,4 @@
-import os,  sys, sqlite3, time, math
+import os,  sys, sqlite3, time, math, traceback
 from tkinter.filedialog import askopenfilename
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
@@ -98,6 +98,8 @@ class LoaderEngine(tb.Frame):
         print(str(e))     
         database.log_error(e)
         self.errors+=1
+        tb = traceback.format_exc()
+        print(str(tb))
         if self.errors > self.MAX_ERRORS:
             messagebox.showerror("Error en aplicación", "Ha excedido el máximo de errores revise data/errors.log")
             sys.exit(0)
@@ -114,9 +116,9 @@ class LoaderEngine(tb.Frame):
                 if type(r) is Producto:
                     sku = database.get_row(r.sku)
                     if not sku: 
-                        self.check_error(f"El sku no se ha localizado {r._sku}.")
+                        self.check_error(f"El sku no se ha localizado {r.sku}.")
                         continue
-                    r['id'] = sku['id']
+                    r['product_id'] = sku['id']
                 elif type(r) in [Stock, Variacion]:
                     label = 'sku' if type(r) == Variacion else 'seller_sku'
                     sku = database.get_row(r[label],'children')
@@ -198,6 +200,11 @@ class LoaderEngine(tb.Frame):
         if (tmp == ExcelType.PRICE or tmp == ExcelType.STOCK) and self.action.get()=='insert':
             messagebox.showerror("Error en carga", "El tipo de archivo, no permite inserción")
             return
+        
+        if tmp == ExcelType.KITS and self.action.get()=='update':
+            messagebox.showerror("Error en carga", "El tipo de archivo, no permite actualización")
+            return
+
         self.xls = Excelfile(self.filename.get(),tmp)
         self.xls.open()
         self.errors=0
@@ -245,7 +252,10 @@ class LoaderEngine(tb.Frame):
         if not answer: return
 
         self.process_file()
-        messagebox.showinfo("Proceso", "El proceso ha concluído")
+        if self.errors>0:
+            messagebox.showinfo("Proceso", "El proceso ha concluído con errores, revise el dat/errores.log")
+        else:
+            messagebox.showinfo("Proceso", "El proceso ha concluído")
 
     def cancel(self):
         "Cleansup all data frominterface"
@@ -270,7 +280,7 @@ class LoaderEngine(tb.Frame):
             self.auth = Auth(token=token, private=private, production=True)
             with open(".env","wt") as f:
                 f.write(f"TOKEN={token}\n")
-                f.write(f"PRIVATE={token}\n")
+                f.write(f"PRIVATE={private}\n")
 
     def getAnswer(self, data):
         "Retrieve each recovered row from REST API Call."
@@ -347,7 +357,7 @@ class LoaderEngine(tb.Frame):
 
 if __name__ == '__main__':
 
-    theme = os.getenv("THEME", "cosmo")
+    theme = os.getenv("THEME", "yeti")
     app = tb.Window("MarketSync Loader", theme)
     LoaderEngine(app)
     app.mainloop()
