@@ -44,26 +44,27 @@ Credentials are going to be stored in plain text inside a ".env" file, in the sa
 
 # How to install
 
-Just clone or download project
+Just clone or download project  
 
-Open a windows command shell and change your current directory to cloned | unzipped one
+Open a windows command shell and change your current directory to cloned | unzipped one  
 
-Create a environment in the corresponding folder
+Create a environment in the corresponding folder  
 
-python -m venv venv
+- python -m venv venv  
 
-- activate environment 
+Activate environment  
 
-- For Windows 
-venv\Scripts\activate
-- For Linux, Mac 
-source venv/bin/activate
+For Windows  
+- venv\Scripts\activate 
 
-- install required libraries
-pip install -r freeze.txt
+For Linux, Mac  
+- source venv/bin/activate 
 
--- run it
-pytho app.py
+Install required libraries  
+- pip install -r freeze.txt
+
+Run it  
+- python app.py
 
 # Related Projects
 MarketSync API [https://github.com/hvalles/marketsync]  
