@@ -108,12 +108,14 @@ class LoaderEngine(tb.Frame):
         primario = []
         secundario =[]
         catalogo = False
+        evitar = []
         for r in data:
             if type(r) is Producto: 
                 catalogo = True
                 r.categoria_id = self.xls.category.id
             if self.action.get()=='update':
                 if type(r) is Producto:
+                    evitar = ['sku','categoria_id','filtro_id','listing_type_id']
                     sku = database.get_row(r.sku)
                     if not sku: 
                         self.check_error(f"El sku no se ha localizado {r.sku}.")
@@ -137,7 +139,7 @@ class LoaderEngine(tb.Frame):
                 secundario.append(r.asdict())
             else:
                 if type(r) is Producto:
-                    primario.append(r.asdict(['sku','categoria_id','filtro_id','listing_type_id']))
+                    primario.append(r.asdict(evitar))
                 else:
                     primario.append(r.asdict())
         try:

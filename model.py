@@ -37,6 +37,12 @@ class Model:
             if k in exclude: continue
             if not str(k).startswith('_') and str(k)!='id':
                 data[k] = getattr(self, k)
+                if type(data[k]) is list:
+                    if data[k] and issubclass(type(data[k][0]), Model):
+                        temp = []
+                        for i in data[k]:
+                            temp.append(i.asdict())
+                        data[k] = temp
                 
         return data
 

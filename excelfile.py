@@ -43,9 +43,10 @@ class Excelfile():
 
     def parse_kit(self, row:int=0, previo=None):
         # Handled by positional columns
-        r = previo if previo else Kit()
-        if not previo:
-            r.sku = self.hoja.cell(row, 1).value
+        sku = self.hoja.cell(row, 1).value
+        if not previo or previo.sku!=sku:
+            r = Kit()
+            r.sku = sku
             r.comentario = self.hoja.cell(row, 2).value
         c:Componente=Componente()
         c.sku=self.hoja.cell(row, 3).value
@@ -87,6 +88,7 @@ class Excelfile():
         "Generator for each row into model"
         previo = None
         for i in range(self.first_row, self.last_row+1):
+            if not self.hoja[f"A{i}"].value: continue
             if self.template==ExcelType.MASTER: # Yields 2 records
                 sku = self.hoja[f"A{i}"].value
                 if not sku in self.skus:
@@ -96,7 +98,7 @@ class Excelfile():
             else:
                 if self.template==ExcelType.KITS: # Yields by group
                     r = self.parse_kit(i, previo)
-                    if not previo: previo = r
+                    if previo is None: previo = r
                     if previo.sku!=r.sku:
                         yield previo
                         previo = r

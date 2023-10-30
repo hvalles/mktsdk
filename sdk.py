@@ -53,35 +53,31 @@ class Controller():
 
     def call(self, url, method="get", data=None):
         if not self.auth: raise Exception("Authorization  required!")
-        if data:
-            if method=='get':
+        if method=='get':
+            if data:
                 r = requests.get(url, json=data, timeout=self.TIMEOUT)
-                if not r: raise Exception(r.text)
-                return r.json()
-            if method=='post':
-                r = requests.post(url, json=data, timeout=self.TIMEOUT)
-                self.check_answer(r)
-                return r.json()
-            if method=='put':
-                r = requests.put(url, json=data, timeout=self.TIMEOUT)
-                self.check_answer(r)
-                return r.json()
-            raise Exception("Method not allowed.")
-
-        else:
-            if method=='get':
+            else:
                 r = requests.get(url, timeout=self.TIMEOUT)
-                return r.json()
-            if method=='post':
+            if not r: raise Exception(r.text)
+            return r.json()
+        elif method=='post':
+            if data:
+                r = requests.post(url, json=data, timeout=self.TIMEOUT)
+            else:
                 r = requests.post(url, timeout=self.TIMEOUT)
-                return r.json()
-            if method=='put':
+            self.check_answer(r)
+            return r.json()
+        elif method=='put':
+            if data:
+                r = requests.put(url, json=data, timeout=self.TIMEOUT)
+            else:
                 r = requests.put(url, timeout=self.TIMEOUT)
-                return r.json()
-            if method=='delete':
-                r = requests.delete(url, timeout=self.TIMEOUT)
-                return r.json()
-            raise Exception("Method not allowed.")
+            self.check_answer(r)
+            return r.json()
+        elif method=='delete':
+            r = requests.delete(url, timeout=self.TIMEOUT)
+            return r.json()        
+        raise Exception("Method not allowed.")
 
 
     def get(self, key:dict=None, data:dict={}):        
