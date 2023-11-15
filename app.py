@@ -130,6 +130,10 @@ class LoaderEngine(tb.Frame):
                     r['product_id'] = sku['product_id']                    
                 elif type(r) is Precio: 
                     r.market_id = r.get_market()
+                    if not r.market_id:
+                        self.check_error(f"El market  no se ha localizado {r._sku}.")
+                        continue
+
                     sku = database.get_row(r._sku)
                     if not sku: 
                         self.check_error(f"El sku no se ha localizado {r._sku}.")
