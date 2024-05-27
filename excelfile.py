@@ -1,7 +1,7 @@
 import os
 from  enum import Enum
 from openpyxl import load_workbook
-from model import Producto, Categoria, Componente, Kit, Variacion, Stock, Precio, Model
+from model import Producto, Categoria, Componente, Kit, Variacion, Stock, Precio,  Pedido, Pedidodet, Model
 
 class ExcelType(Enum):
     ## Template clasification
@@ -10,6 +10,7 @@ class ExcelType(Enum):
     PRICE = 4
     STOCK = 8
     VARIACION = 16
+    PEDIDOS = 32
 
 class Excelfile():
     COL_CATEGORIA=10
@@ -39,6 +40,7 @@ class Excelfile():
         if self.template==ExcelType.PRICE: return Precio()
         if self.template==ExcelType.STOCK: return Stock()
         if self.template==ExcelType.VARIACION : return Variacion()
+        if self.template==ExcelType.PEDIDOS : return Pedido()
         raise TypeError()
 
     def parse_kit(self, row:int=0, previo=None):
@@ -53,6 +55,36 @@ class Excelfile():
         c.cantidad=self.hoja.cell(row, 4).value
         r.componentes.append(c)
         return r
+
+    def parse_pedido(self, row:int=0, previo=None):
+        # Handled by positional columns
+        row_det = 20
+        ref = str(self.hoja.cell(row, 2).value).strip()
+        r:Pedido = previo
+        rd=Pedidodet()
+        if not previo or previo.referencia!=ref:
+            r = Pedido()            
+            for i in range(1,self.last_col+1):                
+                col = self.hoja.cell(self.header, i).value
+                if not col: continue
+                value = str(self.hoja.cell(row, i).value).strip()
+                if self.hoja.cell(row, i).value is None: 
+                    value = ''  if col in ['entrecalles','observaciones','mensajeria','guias'] else None
+                    
+                # if not value: value=''
+                if i < row_det + 1 and r.haskey(col):   r[col] = value
+                if i > row_det and rd.haskey(col):  rd[col] = value
+        else:
+            c:Pedidodet=Pedidodet()
+            for i in range(row_det, self.last_col+1):                
+                col = self.hoja.cell(self.header, i).value
+                if not col: continue
+                value = self.hoja.cell(row, i).value
+                if rd.haskey(col):  rd[col] = value
+
+        r.lineas.append(rd)
+        return r
+
 
     def parse_model(self, row:int=0, primary=True):
         "Read Excel row and return model object"
@@ -102,9 +134,16 @@ class Excelfile():
                     if previo.sku!=r.sku:
                         yield previo
                         previo = r
+                if self.template==ExcelType.PEDIDOS: # Yields by group
+                    r = self.parse_pedido(i, previo)
+                    if previo is None: previo = r                    
+                    if previo.referencia!=r.referencia:
+                        yield previo
+                        previo = r
                 else:
                     yield self.parse_model(i)
-        if previo: yield previo
+        if previo: 
+            yield previo
 
     def open(self, sheet=None):
         "Open excel file and set initial values"

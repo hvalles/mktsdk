@@ -3,7 +3,7 @@ from tkinter.filedialog import askopenfilename
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
 from tkinter import StringVar, messagebox, simpledialog
-from sdk import Auth, Controller, Productos, Variaciones, Categorias, Kits, Stocks, Precios
+from sdk import Auth, Controller, Productos, Variaciones, Categorias, Kits, Stocks, Precios, Pedidos
 from dotenv import load_dotenv
 import database
 from model import Categoria, Atributo, Producto, Stock, Variacion, Precio
@@ -30,7 +30,7 @@ class LoaderEngine(tb.Frame):
 
         token = os.getenv('TOKEN')
         private = os.getenv("PRIVATE")
-        if token and private : self.auth = Auth(token=token, private=private, production=True)
+        if token and private : self.auth = Auth(token=token, private=private, production=False)
 
         _path = os.path.dirname(os.path.realpath(__file__))
         if getattr(sys, 'frozen', False):
@@ -55,7 +55,7 @@ class LoaderEngine(tb.Frame):
         tb.Button(text="Llaves", bootstyle="info", command=self.setkeys).grid(
             row=row, column=5, padx=10, pady=5)
 
-        lista = ["Catalogo", "Precios", "Stock", "kits"]
+        lista = ["Catalogo", "Precios", "Stock", "kits", "Pedidos"]
         row+=2
         tb.Label(text="Tipo de archivo:").grid(row=row, column=1, padx=10, pady=5)
         self.cbo = tb.Combobox(master=master, values=lista, textvariable=self.archivo)
@@ -201,6 +201,9 @@ class LoaderEngine(tb.Frame):
             elif idx==3: 
                 tmp = ExcelType.KITS
                 controller=Kits(self.auth)
+            elif idx==4: 
+                tmp = ExcelType.PEDIDOS
+                controller=Pedidos(self.auth)
             else:
                 raise TypeError("Opción no identificada")
             return tmp, controller
@@ -210,7 +213,7 @@ class LoaderEngine(tb.Frame):
             messagebox.showerror("Error en carga", "El tipo de archivo, no permite inserción")
             return
         
-        if tmp == ExcelType.KITS and self.action.get()=='update':
+        if tmp in [ExcelType.KITS, ExcelType.PEDIDOS] and self.action.get()=='update':
             messagebox.showerror("Error en carga", "El tipo de archivo, no permite actualización")
             return
 

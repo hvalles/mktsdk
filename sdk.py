@@ -177,3 +177,8 @@ class Variaciones(Controller):
         url = self.auth.getUrl(self.endpoint+f"/listkeys/{limit}/{offset}/{order}")
         return self.call(url, "get")
 
+class Pedidos(Controller):
+    def __init__(self, auth:Auth=None) -> None:
+        self.endpoint='pedidos'
+        self.auth = auth
+

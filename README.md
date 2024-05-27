@@ -66,6 +66,10 @@ Install required libraries
 Run it  
 - python app.py
 
+Create standalone executable
+pip install pyinstaller
+pyinstaller --onefile app.py
+
 # Related Projects
 MarketSync API [https://github.com/hvalles/marketsync]  
 Marketswync PlayGround [https://sandbox.marketsync.mx/playground/index]

@@ -325,3 +325,48 @@ class Stock(AliasedModel):
         self.product_id:int=0
         self.stock:int=0
         if not Stock.constructed: Stock.construct()
+
+
+class Pedido(AliasedModel):
+    constructed=False
+    _alias={}
+    
+    def __init__(self):
+        self.market_id=0
+        self.referencia=''
+        self.fecha_pedido=''
+        self.fecha_autoriza=''
+        self.subtotal=0.0
+        self.total=0.0
+        self.email=''
+        self.entregara=''
+        self.telefono=''
+        self.direccion=''
+        self.entrecalles=''
+        self.colonia=''
+        self.ciudad=''
+        self.estado=''
+        self.observaciones=''
+        self.cp=''
+        self.estatus=''
+        self.mensajeria=''
+        self.guias=''
+        self.orden_id=None
+        self.shipping_id=None
+        self.fecha_orden=''
+        self.lineas=[]
+
+class Pedidodet(AliasedModel):
+    constructed=False
+    _alias={}
+    def __init__(self):
+        self.product_id=0
+        self.sku=''
+        self.descripcion=''
+        self.fulfillment=''
+        self.cantidad=0
+        self.precio=0.0
+        self.iva=0.0
+        self.color=''
+        self.referencia=''
+        self.variacion=''
