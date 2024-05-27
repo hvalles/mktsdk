@@ -30,7 +30,7 @@ class LoaderEngine(tb.Frame):
 
         token = os.getenv('TOKEN')
         private = os.getenv("PRIVATE")
-        if token and private : self.auth = Auth(token=token, private=private, production=False)
+        if token and private : self.auth = Auth(token=token, private=private, production=True)
 
         _path = os.path.dirname(os.path.realpath(__file__))
         if getattr(sys, 'frozen', False):
