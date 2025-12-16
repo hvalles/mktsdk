@@ -2,6 +2,7 @@
 17	AmazonUS
 1	Claro
 10	Elektra
+3	Liga_Mx
 2	Linio
 4	Mercadolibre
 13	Mercadolibre2

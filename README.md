@@ -1,10 +1,10 @@
 # MKTSDK
 MarketSync SDK for API Consume and software integration  
-- Data is devilered by JSON and REST Calls, all those call are internally handled by SDK and converted into Python dictionaries
+- Data is delivered by JSON and REST Calls, all those call are internally handled by SDK and converted into Python dictionaries
 
-The main purpose of this projects is present an application that involves and consumes APIs from MarketSync, so you may understand some steps in order to integrate your own Legacy/ERP softeware with these APIs
+The main purpose of this projects is present an application that involves and consumes APIs from MarketSync, so you may understand some steps in order to integrate your own Legacy/ERP software with these APIs
 
-You are going to need access to MarketSync platform i order to get your credentials for access and consume API Calls.
+You are going to need access to MarketSync platform in order to get your credentials for access and consume API Calls.
 
 Please consult the next guide [https://github.com/hvalles/marketsync/blob/master/links/keys.md] for moren information about obtaining credentials for API Consume.
 
@@ -28,7 +28,7 @@ Example app is an GUI interface for upload MarketSync Templates about
 -- Stock  
 -- Kits  
 
-Application would create a data folder and will place inside it all erros, and data stored in database.  
+Application would create a data folder and will place inside it all errors, and data stored in database.  
 
 Database in use is SQLITE3 and it's name is data/file.db.  
 

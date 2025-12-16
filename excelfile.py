@@ -134,7 +134,7 @@ class Excelfile():
                     if previo.sku!=r.sku:
                         yield previo
                         previo = r
-                if self.template==ExcelType.PEDIDOS: # Yields by group
+                elif self.template==ExcelType.PEDIDOS: # Yields by group
                     r = self.parse_pedido(i, previo)
                     if previo is None: previo = r                    
                     if previo.referencia!=r.referencia:
